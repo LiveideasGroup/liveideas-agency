@@ -2,6 +2,7 @@ import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
 import { db, logEvent } from "./db.js";
 import { NICHE_IDS, type NicheId } from "../niches.js";
+import { guardDraft } from "../security/guard.js";
 
 const nicheEnum = z.enum(NICHE_IDS as [NicheId, ...NicheId[]]);
 
@@ -74,7 +75,7 @@ export const saveLeadTool = betaZodTool({
   inputSchema: z.object({
     niche: nicheEnum,
     company: z.string(),
-    website: z.string().url(),
+    website: z.string().url().regex(/^https?:\/\//i, "must be an http(s) link"),
     contact_name: z.string().optional(),
     contact_role: z.string().optional(),
     email: z.string().email().optional().describe("Only if published by the company"),
@@ -94,28 +95,42 @@ export const saveLeadTool = betaZodTool({
 export const draftOutreachTool = betaZodTool({
   name: "draft_outreach",
   description:
-    "Submit a first-touch email for the owner to approve. It is NOT sent until the owner approves it in the dashboard.",
+    "Submit a first-touch email for the owner to approve. It goes to the lead's saved email only, is checked by the outbound guard, and is NOT sent until the owner approves it in the dashboard.",
   inputSchema: z.object({
     lead_id: z.string().uuid(),
-    to: z.string().email(),
     subject: z.string().max(80),
     body: z.string().max(1500).describe("Plain text. No opt-out line or signature: those are added on send."),
   }),
-  run: async ({ lead_id, to, subject, body }) => {
-    const { data: lead } = await db().from("leads").select("company, status").eq("id", lead_id).maybeSingle();
+  run: async ({ lead_id, subject, body }) => {
+    const { data: lead } = await db()
+      .from("leads")
+      .select("company, status, email, website")
+      .eq("id", lead_id)
+      .maybeSingle();
     if (!lead) return "error: lead not found";
     if (lead.status === "opted_out") return "error: this lead opted out; do not contact";
+    if (!lead.email) return "error: this lead has no saved email; skip it";
+    const to = lead.email as string;
+
+    const guard = await guardDraft({ to, subject, body }, lead);
     const { error } = await db().from("approvals").insert({
       agent: "sales",
       kind: "email",
       lead_id,
       title: `Email to ${lead.company}: ${subject}`,
       payload: { to, subject, body },
+      status: guard.status === "blocked" ? "blocked" : "pending",
+      guard_status: guard.status,
+      guard_flags: guard.flags,
     });
     if (error) return `error: ${error.message}`;
+    if (guard.status === "blocked") {
+      await logEvent("guard", `Blocked a draft to ${lead.company}: ${guard.flags.map((f) => f.code).join(", ")}`, "warn", guard.flags);
+      return `blocked by the outbound guard: ${guard.flags.map((f) => f.detail).join("; ")}`;
+    }
     await db().from("leads").update({ status: "drafted", updated_at: new Date().toISOString() }).eq("id", lead_id);
-    await logEvent("sales", `Drafted email to ${lead.company} for approval`);
-    return "submitted for approval";
+    await logEvent("sales", `Drafted email to ${lead.company} for approval${guard.status === "flagged" ? " (flagged)" : ""}`);
+    return guard.status === "flagged" ? "submitted for approval, with guard flags for the owner" : "submitted for approval";
   },
 });
 

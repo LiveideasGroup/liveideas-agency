@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import { db, getSetting, logEvent } from "./db.js";
+import { db, getSetting, isKillSwitchOn, logEvent } from "./db.js";
 
 /**
  * Sends emails the owner has approved. Nothing else in the system sends email.
@@ -11,7 +11,7 @@ export async function sendApprovedEmails(): Promise<number> {
   const pass = process.env.SMTP_PASS;
   if (!host || !user || !pass) return 0;
 
-  if (await getSetting<boolean>("kill_switch", false)) return 0;
+  if (await isKillSwitchOn()) return 0;
 
   const cap = Number(await getSetting<number>("daily_send_cap", 40));
   const dayStart = new Date();
@@ -26,7 +26,7 @@ export async function sendApprovedEmails(): Promise<number> {
 
   const { data: queue } = await db()
     .from("approvals")
-    .select("id, lead_id, payload")
+    .select("id, lead_id, payload, guard_status")
     .eq("kind", "email")
     .eq("status", "approved")
     .order("decided_at", { ascending: true })
@@ -50,20 +50,37 @@ export async function sendApprovedEmails(): Promise<number> {
   for (const item of queue) {
     const { to, subject, body } = item.payload as { to: string; subject: string; body: string };
 
-    if (item.lead_id) {
-      const { data: lead } = await db().from("leads").select("status").eq("id", item.lead_id).maybeSingle();
-      if (lead?.status === "opted_out") {
-        await db().from("approvals").update({ status: "failed", owner_note: "lead opted out" }).eq("id", item.id);
-        continue;
-      }
+    // Re-check at send time: the email must go to the lead's own saved address and must not be blocked.
+    const fail = async (note: string) => {
+      await db().from("approvals").update({ status: "failed", owner_note: note }).eq("id", item.id);
+      await logEvent("sales", `Did not send approval ${item.id}: ${note}`, "warn");
+    };
+    if (item.guard_status === "blocked") {
+      await fail("blocked by the outbound guard");
+      continue;
+    }
+    if (!item.lead_id) {
+      await fail("no lead linked to this email");
+      continue;
+    }
+    const { data: lead } = await db().from("leads").select("status, email").eq("id", item.lead_id).maybeSingle();
+    if (!lead) {
+      await fail("lead not found");
+      continue;
+    }
+    if (lead.status === "opted_out") {
+      await fail("lead opted out");
+      continue;
+    }
+    if (!lead.email || lead.email.toLowerCase() !== String(to).toLowerCase()) {
+      await fail("recipient does not match the lead's saved email");
+      continue;
     }
 
     try {
       await transport.sendMail({ from, to, subject, text: `${body}\n\n${signature}\n\n${footer}` });
       await db().from("approvals").update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", item.id);
-      if (item.lead_id) {
-        await db().from("leads").update({ status: "contacted", updated_at: new Date().toISOString() }).eq("id", item.lead_id);
-      }
+      await db().from("leads").update({ status: "contacted", updated_at: new Date().toISOString() }).eq("id", item.lead_id);
       sent++;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

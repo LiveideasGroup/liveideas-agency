@@ -27,6 +27,7 @@ export default function AgentsPage() {
   const settings = useLiveTable<Setting>("settings-agents", ["settings"], (sb) => sb.from("settings").select("key, value"));
   const sb = agents.sb;
   const killed = settings.rows.find((s) => s.key === "kill_switch")?.value === true;
+  const killReason = settings.rows.find((s) => s.key === "kill_reason")?.value as string | undefined;
 
   async function update(name: string, patch: Partial<Agent>) {
     const { error } = await sb.from("agents").update(patch).eq("name", name);
@@ -35,8 +36,10 @@ export default function AgentsPage() {
 
   async function setKill(on: boolean) {
     if (on && !confirm("Pause every agent and stop all sending?")) return;
+    if (!on && killReason && !confirm(`The kill switch was turned on because: ${killReason}. Check the Security page first. Resume anyway?`)) return;
     const { error } = await sb.from("settings").update({ value: on }).eq("key", "kill_switch");
-    if (error) alert(error.message);
+    if (error) return alert(error.message);
+    await sb.from("settings").upsert({ key: "kill_reason", value: on ? "Paused by the owner" : "" });
   }
 
   return (
@@ -46,6 +49,7 @@ export default function AgentsPage() {
         <div>
           <strong>Kill switch</strong>
           <div className="muted">{killed ? "On: every agent is paused and nothing is sent." : "Off: agents run on their schedules."}</div>
+          {killed && killReason && <div className="muted">Reason: {killReason}</div>}
         </div>
         {killed ? (
           <button className="primary" onClick={() => setKill(false)}>Resume agents</button>

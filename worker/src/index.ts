@@ -3,11 +3,12 @@
  * that is due, works through queued tasks, and sends approved emails.
  *
  *   npm run worker            run forever
- *   npm run agent -- ceo      run one agent once (ceo | research | sales | send)
+ *   npm run agent -- ceo      run one agent once (ceo | research | sales | send | security | compliance)
  */
 import { db, logEvent, type AgentRow } from "./lib/db.js";
 import { sendApprovedEmails } from "./lib/mailer.js";
 import { runCeo, runNextTask } from "./agents/index.js";
+import { runCompliance, runSecurity } from "./security/agents.js";
 
 const TICK_MS = 60_000;
 
@@ -25,6 +26,12 @@ async function tick() {
     const { data: agents } = await db().from("agents").select("*");
     const ceo = (agents ?? []).find((a) => a.name === "ceo") as AgentRow | undefined;
     if (ceo && ceo.enabled && isDue(ceo)) await runCeo();
+
+    // Security and Compliance keep running while the kill switch is on: they only read and report.
+    const security = (agents ?? []).find((a) => a.name === "security") as AgentRow | undefined;
+    if (security && security.enabled && isDue(security)) await runSecurity();
+    const compliance = (agents ?? []).find((a) => a.name === "compliance") as AgentRow | undefined;
+    if (compliance && compliance.enabled && isDue(compliance)) await runCompliance();
 
     // Work through up to 3 tasks per agent per tick, so one agent can't starve the others.
     for (const name of ["research", "sales"] as const) {
@@ -54,11 +61,17 @@ async function main() {
       case "sales":
         console.log((await runNextTask(arg)) ? "ran one task" : "no queued task");
         break;
+      case "security":
+        console.log(await runSecurity());
+        break;
+      case "compliance":
+        console.log(await runCompliance());
+        break;
       case "send":
         console.log(`sent ${await sendApprovedEmails()}`);
         break;
       default:
-        console.error("usage: npm run agent -- <ceo|research|sales|send>");
+        console.error("usage: npm run agent -- <ceo|research|sales|send|security|compliance>");
         process.exit(1);
     }
     return;
