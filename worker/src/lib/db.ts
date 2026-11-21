@@ -35,6 +35,24 @@ export async function logEvent(
 }
 
 export async function getSetting<T>(key: string, fallback: T): Promise<T> {
-  const { data } = await db().from("settings").select("value").eq("key", key).maybeSingle();
+  const { data, error } = await db().from("settings").select("value").eq("key", key).maybeSingle();
+  if (error) throw new Error(`could not read setting ${key}: ${error.message}`);
   return (data?.value as T) ?? fallback;
+}
+
+/** The kill switch fails closed: if it cannot be read, treat it as on. */
+export async function isKillSwitchOn(): Promise<boolean> {
+  try {
+    return (await getSetting<boolean>("kill_switch", false)) !== false;
+  } catch (err) {
+    console.error("kill switch unreadable, treating as on:", err instanceof Error ? err.message : err);
+    return true;
+  }
+}
+
+/** Turns the kill switch on and records why. Used by the Security agent for critical findings. */
+export async function engageKillSwitch(agent: string, reason: string) {
+  await db().from("settings").upsert({ key: "kill_switch", value: true });
+  await db().from("settings").upsert({ key: "kill_reason", value: reason });
+  await logEvent(agent, `Kill switch turned on: ${reason}`, "error");
 }

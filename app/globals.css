@@ -77,3 +77,15 @@ textarea { min-height: 160px; }
 .login { max-width: 360px; margin: 80px auto; display: grid; gap: 12px; }
 .login form { display: grid; gap: 10px; }
 .killed { background: var(--bad); color: #fff; padding: 10px 16px; border-radius: 8px; margin-bottom: 16px; }
+
+.tag.warn { background: #fff3cd; color: #7a5b00; }
+.flags { margin: 8px 0; padding-left: 18px; color: #7a5b00; font-size: 0.9em; }
+.status-ok { color: #1b7a3a; font-weight: 600; }
+.status-bad { color: #b42318; font-weight: 600; }
+.status-due { color: #7a5b00; font-weight: 600; }
+@media (prefers-color-scheme: dark) {
+  .tag.warn { background: #4a3b00; color: #ffe08a; }
+  .flags, .status-due { color: #ffd666; }
+  .status-ok { color: #6fd08c; }
+  .status-bad { color: #ff8a80; }
+}

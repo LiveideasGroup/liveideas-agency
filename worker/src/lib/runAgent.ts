@@ -1,8 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { db, getSetting, logEvent, type AgentRow } from "./db.js";
+import { db, isKillSwitchOn, logEvent, type AgentRow } from "./db.js";
 import { recordSpend, spentToday } from "./cost.js";
 
-const anthropic = new Anthropic();
+export const anthropic = new Anthropic();
 
 type RunnerParams = Parameters<typeof anthropic.beta.messages.toolRunner>[0];
 
@@ -28,7 +28,7 @@ export async function loadAgent(name: string): Promise<AgentRow> {
 
 /** Why an agent may not run right now, or null when it may. */
 export async function blockedReason(agent: AgentRow): Promise<string | null> {
-  if (await getSetting<boolean>("kill_switch", false)) return "kill switch is on";
+  if (await isKillSwitchOn()) return "kill switch is on";
   if (!agent.enabled) return "agent is switched off";
   const spent = await spentToday(agent.name);
   const cap = Number(agent.daily_budget_usd);
@@ -91,4 +91,33 @@ function textOf(message: Anthropic.Beta.BetaMessage): string {
     .map((b) => b.text)
     .join("\n")
     .trim();
+}
+
+/**
+ * One plain model call for the small security agents (no tools, no thinking),
+ * with the same kill switch and budget checks as runAgent. Returns null when blocked.
+ */
+export async function quickCall(
+  agentName: string,
+  system: string,
+  prompt: string,
+  maxTokens = 1024,
+): Promise<{ text: string; usd: number } | null> {
+  const agent = await loadAgent(agentName);
+  const blocked = await blockedReason(agent);
+  if (blocked) return null;
+  const message = await anthropic.messages.create({
+    model: agent.model,
+    max_tokens: maxTokens,
+    system,
+    messages: [{ role: "user", content: prompt }],
+  });
+  const usd = await recordSpend(agent.name, message.model ?? agent.model, message.usage as Anthropic.Beta.BetaUsage);
+  if (message.stop_reason === "refusal") return { text: "", usd };
+  const text = message.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("\n")
+    .trim();
+  return { text, usd };
 }

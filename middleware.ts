@@ -20,10 +20,21 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
   const path = request.nextUrl.pathname;
   const isPublic = path.startsWith("/login") || path.startsWith("/auth");
-  if (!user && !isPublic) {
+  const redirect = (to: string) => {
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
+    url.pathname = to;
+    url.search = "";
+    const res = NextResponse.redirect(url);
+    response.cookies.getAll().forEach((c) => res.cookies.set(c));
+    return res;
+  };
+  if (!user) return isPublic ? response : redirect("/login");
+
+  // Signed in with the email link only (aal1): the second factor is required before
+  // anything else. The database enforces the same rule, so this is for a clear UX.
+  if (!path.startsWith("/mfa") && !isPublic) {
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aal?.currentLevel !== "aal2") return redirect("/mfa");
   }
   return response;
 }
