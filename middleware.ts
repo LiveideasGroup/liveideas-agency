@@ -1,8 +1,16 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+// The public website. Everything not listed here needs the owner's session (deny by default).
+const PUBLIC_EXACT = new Set(["/", "/robots.txt", "/sitemap.xml", "/icon.svg", "/opengraph-image"]);
+const PUBLIC_PREFIXES = ["/services", "/proof", "/pilot", "/contact", "/how-we-work", "/legal", "/api/enquiry", "/api/activity"];
+const isSite = (path: string) =>
+  PUBLIC_EXACT.has(path) || PUBLIC_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`));
+
 /** Refreshes the Supabase session and sends signed-out visitors to /login. */
 export async function middleware(request: NextRequest) {
+  // Public pages never touch the owner's session.
+  if (isSite(request.nextUrl.pathname)) return NextResponse.next();
   let response = NextResponse.next({ request });
   const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
     cookies: {
@@ -29,6 +37,7 @@ export async function middleware(request: NextRequest) {
     return res;
   };
   if (!user) return isPublic ? response : redirect("/login");
+  if (path === "/login") return redirect("/dashboard");
 
   // Signed in with the email link only (aal1): the second factor is required before
   // anything else. The database enforces the same rule, so this is for a clear UX.

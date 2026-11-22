@@ -11,6 +11,8 @@ export type Niche = {
   painPoints: string;
   freeProof: string;
   pilot: string;
+  /** Fixed pilot price, shown on the public website and charged through Stripe. Keep in line with `pilot`. */
+  pilotPriceGbp: number;
   fullBuild: string;
   guardrails: string;
 };
@@ -26,6 +28,7 @@ export const NICHES: Record<NicheId, Niche> = {
     freeProof:
       "We automate 10 of their existing manual test cases against their staging site and send them the working tests and a run report, free.",
     pilot: "Paid pilot: 50 test cases automated for £2,500.",
+    pilotPriceGbp: 2500,
     fullBuild:
       "Full automated regression suite with an exploratory testing agent and release reports: £8,000 to £15,000, then £2,000 a month to run and extend.",
     guardrails:
@@ -41,6 +44,7 @@ export const NICHES: Record<NicheId, Niche> = {
     freeProof:
       "A demo support assistant trained on their public FAQ and rules pages that answers their traders' common questions, free.",
     pilot: "Paid pilot: support assistant live on one channel for £2,500.",
+    pilotPriceGbp: 2500,
     fullBuild:
       "Full support and onboarding build: £8,000 to £15,000, then £2,000 a month to run and improve.",
     guardrails:
@@ -56,6 +60,7 @@ export const NICHES: Record<NicheId, Niche> = {
     freeProof:
       "A short report of the top themes in their public app-store and review-site reviews, with example quotes, free.",
     pilot: "Paid pilot: feedback synthesis connected to one source for £2,000.",
+    pilotPriceGbp: 2000,
     fullBuild:
       "Full feedback-to-roadmap build in their Jira or Linear: £6,000 to £12,000, then £1,500 a month.",
     guardrails: "Sell custom work inside their own stack, not another off-the-shelf tool.",

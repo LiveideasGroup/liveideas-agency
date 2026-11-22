@@ -10,6 +10,26 @@ This is Phase 1 of the approved plan: the **sales MVP**.
 - **Approvals queue**: nothing is sent until the owner approves it in the dashboard.
 - **Live dashboard** (Next.js): overview, niche race, CEO briefing, activity feed, approvals, pipeline, agent controls, daily AI budgets and a kill switch.
 
+## Public website
+
+The same app serves the public website at `/` and the owner dashboard at `/dashboard`.
+
+- **Pages**: home with the live agent feed, a page per niche (`/services/...`), free proof request (`/proof`), pilots (`/pilot`), contact, how we work, and legal pages. Copy lives in `lib/site/content.ts`; prices come from `worker/src/niches.ts`, so the site and the Sales agent always match.
+- **Enquiries**: the forms post to `/api/enquiry`, which checks the input, drops bots (hidden field and timing) and calls the database function `submit_enquiry`. That stores the enquiry, links or creates a lead, and queues an `inbound_reply` task for the Sales agent. The reply waits in the approvals queue like every other email. Limits: 30 enquiries an hour in total (setting `enquiry_hourly_cap`), 5 per visitor an hour, 3 per email a day.
+- **Live feed**: the home page shows the agents' recent tasks through `public_activity`, which returns only agent, task type, niche and time, never names or messages. Turn it off with the setting `public_feed` = `false`; the site then shows a feed clearly labelled Example.
+- **Pilots**: paid with Stripe Payment Links (`NEXT_PUBLIC_STRIPE_PILOT_LINK_*`). Without a link, the button becomes a pilot request form.
+- **Security**: public routes are listed in `middleware.ts`; everything else needs the owner's session (deny by default). No table has a policy for signed-out users: the site reaches the database only through the two functions above. The existing CSP and headers apply to every page, and fonts are self-hosted.
+
+### Hosting on Cloudflare (free, commercial use allowed)
+
+Vercel's free plan is for non-commercial use only, so the app is set up for Cloudflare Workers:
+
+1. Create a free Cloudflare account and run `npx wrangler login`.
+2. Put the `NEXT_PUBLIC_` variables in `.env.local` (they are built into the site), then run `npm run cf:deploy`.
+3. In Cloudflare, add your domain to the `liveideas` worker.
+
+`npm run cf:preview` runs the Cloudflare build locally.
+
 ## How it fits together
 
 ```
@@ -55,10 +75,10 @@ Run them by hand with `npm run security` or `npm run compliance`.
    ```sql
    insert into app_owner (email) values ('you@example.com');
    ```
-   Then run `supabase/migrations/0002_security.sql`.
+   Then run `supabase/migrations/0002_security.sql` and `supabase/migrations/0003_public_site.sql`.
    Under Authentication, create a user with the same email, **turn off public sign-ups**, and make sure TOTP MFA is enabled (Authentication > Multi-Factor). The first time you sign in, the dashboard asks you to set up an authenticator app; without it the dashboard shows no data.
 2. **Environment**: copy `.env.example` to `.env.local` and fill it in. The Supabase service role key and the Anthropic API key go to the worker only.
-3. **Dashboard**: `npm install`, then `npm run dev` locally, or deploy to Vercel with the two `NEXT_PUBLIC_` variables.
+3. **Website and dashboard**: `npm install`, then `npm run dev` locally (site at `/`, dashboard at `/dashboard`), or deploy to Cloudflare as above.
 4. **Worker**: on a small server (Railway, Render or a Hetzner box), set the worker variables and run `npm run worker`. To run one agent once: `npm run agent -- ceo` (or `research`, `sales`, `send`).
 5. **Email** (optional at first): use a separate outreach domain with SPF, DKIM and DMARC set up, and warm it for 2 to 3 weeks before real volume. Without SMTP settings, approved emails wait in the queue.
 
@@ -70,5 +90,5 @@ Every agent uses Claude Opus 5.5 with adaptive thinking. Effort is set per agent
 
 - Reading replies from the inbox and drafting answers (Phase 1b)
 - Free-proof builders per niche, Proposal, Delivery and QA agents (Phase 2)
-- Stripe Checkout for paid pilots and a revenue webhook (Phase 2)
+- Recording Stripe pilot payments as revenue automatically (Phase 2). Pilots can already be bought through Payment Links.
 - Marketing and Finance agents (Phase 3)
