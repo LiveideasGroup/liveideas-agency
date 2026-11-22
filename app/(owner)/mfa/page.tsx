@@ -19,7 +19,7 @@ export default function MfaPage() {
   useEffect(() => {
     (async () => {
       const { data: aal } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
-      if (aal?.currentLevel === "aal2") return window.location.assign("/");
+      if (aal?.currentLevel === "aal2") return window.location.assign("/dashboard");
       const { data, error } = await sb.auth.mfa.listFactors();
       if (error) return setError(error.message);
       const verified = data.totp.find((f) => f.status === "verified");
@@ -48,7 +48,7 @@ export default function MfaPage() {
     const { error } = await sb.auth.mfa.challengeAndVerify({ factorId, code: code.trim() });
     setBusy(false);
     if (error) return setError("That code did not work. Check your authenticator app and try again.");
-    window.location.assign("/");
+    window.location.assign("/dashboard");
   }
 
   async function signOut() {

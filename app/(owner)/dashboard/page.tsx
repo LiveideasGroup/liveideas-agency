@@ -58,7 +58,7 @@ export default function Overview() {
         <div className="card kpi">
           <div className="label">Waiting for your approval</div>
           <div className="value">{pending.rows.length}</div>
-          <div className="sub"><Link href="/approvals">Review now</Link></div>
+          <div className="sub"><Link href="/dashboard/approvals">Review now</Link></div>
         </div>
         <div className="card kpi">
           <div className="label">Leads found</div>
@@ -68,7 +68,7 @@ export default function Overview() {
         <div className="card kpi">
           <div className="label">AI spend today</div>
           <div className="value">{usd(spendToday)}</div>
-          <div className="sub"><Link href="/agents">Budgets per agent</Link></div>
+          <div className="sub"><Link href="/dashboard/agents">Budgets per agent</Link></div>
         </div>
       </section>
 
