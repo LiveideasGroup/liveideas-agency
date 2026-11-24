@@ -2,6 +2,8 @@ import Link from "next/link";
 import { LiveFeed } from "@/components/site/LiveFeed";
 import { Spark } from "@/components/site/Spark";
 import { CtaBand } from "@/components/site/CtaBand";
+import { CaseCard, ServiceCard } from "@/components/site/ServiceCards";
+import { CASE_STUDIES, CATALOGUE } from "@/lib/site/catalogue";
 import { getFeed } from "@/lib/site/activity";
 import { AGENTS, SERVICES, SITE, gbp } from "@/lib/site/content";
 
@@ -37,6 +39,18 @@ export default async function Home() {
             </div>
           </div>
           <LiveFeed initial={feed} />
+        </div>
+      </section>
+
+      <section className="section" id="what-we-build">
+        <div className="wrap">
+          <div className="section-head">
+            <span className="eyebrow">What we build</span>
+            <h2 className="h-lg">From a one-week setup to a full custom system.</h2>
+            <p className="lede">Typical prices are on the page. Your fixed price comes in writing before any work starts.</p>
+          </div>
+          <div className="svc-grid svc-grid-4">{CATALOGUE.filter((s) => s.lead).map((s) => <ServiceCard key={s.id} s={s} />)}</div>
+          <div style={{ marginTop: 28 }}><Link href="/services" className="link">All services and quick systems</Link></div>
         </div>
       </section>
 
@@ -90,6 +104,16 @@ export default async function Home() {
               <div className="step-meta"><span>Scoped from</span><span>your pilot</span></div>
             </li>
           </ol>
+        </div>
+      </section>
+
+      <section className="section" id="work">
+        <div className="wrap">
+          <div className="section-head">
+            <span className="eyebrow">Our work</span>
+            <h2 className="h-lg">Systems we have built, including the ones we run ourselves.</h2>
+          </div>
+          <div className="case-grid">{CASE_STUDIES.map((c) => <CaseCard key={c.slug} c={c} href={`/case-studies#${c.slug}`} />)}</div>
         </div>
       </section>
 
