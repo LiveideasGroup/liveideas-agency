@@ -22,7 +22,7 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
       <section className="page-hero">
         <div className="hero-grid-bg" aria-hidden="true" />
         <div className="wrap stack">
-          <nav className="crumbs" aria-label="Breadcrumb"><Link href="/">Home</Link><span>/</span><span>Services</span><span>/</span><span>{s.name}</span></nav>
+          <nav className="crumbs" aria-label="Breadcrumb"><Link href="/">Home</Link><span>/</span><Link href="/services">Services</Link><span>/</span><span>{s.name}</span></nav>
           <div style={{ maxWidth: 260 }}><Spark kind={s.id} /></div>
           <span className="eyebrow">{s.name}</span>
           <h1 className="h-xl" style={{ fontSize: "clamp(36px, 5.2vw, 64px)" }}>{s.headline}</h1>

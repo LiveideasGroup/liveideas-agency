@@ -14,7 +14,7 @@ export function Footer() {
           </div>
           <div>
             <h4>Services</h4>
-            <ul>{SERVICES.map((s) => <li key={s.slug}><Link href={`/services/${s.slug}`}>{s.name}</Link></li>)}</ul>
+            <ul><li><Link href="/services">All services</Link></li><li><Link href="/case-studies">Case studies</Link></li>{SERVICES.map((s) => <li key={s.slug}><Link href={`/services/${s.slug}`}>{s.name}</Link></li>)}</ul>
           </div>
           <div>
             <h4>Start</h4>

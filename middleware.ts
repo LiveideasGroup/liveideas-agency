@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 // The public website. Everything not listed here needs the owner's session (deny by default).
 const PUBLIC_EXACT = new Set(["/", "/robots.txt", "/sitemap.xml", "/icon.svg", "/opengraph-image"]);
-const PUBLIC_PREFIXES = ["/services", "/proof", "/pilot", "/contact", "/how-we-work", "/legal", "/api/enquiry", "/api/activity"];
+const PUBLIC_PREFIXES = ["/services", "/proof", "/pilot", "/contact", "/how-we-work", "/case-studies", "/legal", "/api/enquiry", "/api/activity"];
 const isSite = (path: string) =>
   PUBLIC_EXACT.has(path) || PUBLIC_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`));
 
